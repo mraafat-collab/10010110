@@ -1,0 +1,81 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>بوابة الاستقالات</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--d:#3E2710;--m:#8C5A2B;--a:#C08A4B;--bg:#F7F2EA;--c:#FFFDF9;--b:#D6C2A7;--s:#EADBCE;--t:#3B2A1A}
+*{box-sizing:border-box}body{margin:0;font-family:Cairo,sans-serif;background:var(--bg);color:var(--t);display:flex;min-height:100vh}
+aside{width:240px;background:linear-gradient(180deg,var(--d),#2A1A0A);color:#F5EFE6;padding:22px 16px;position:sticky;top:0;height:100vh;flex-shrink:0}
+aside h1{font-size:18px;margin:0 0 4px}aside p{font-size:12px;opacity:.7;margin:0 0 24px}
+nav a{display:block;padding:12px 14px;border-radius:12px;color:#F5EFE6;text-decoration:none;font-weight:700;margin-bottom:6px;cursor:pointer}
+nav a:hover{background:rgba(255,255,255,.08)}nav a.on{background:linear-gradient(135deg,var(--a),var(--m));box-shadow:0 6px 16px rgba(0,0,0,.3)}
+main{flex:1;padding:28px 34px;min-width:0}h2{margin:0 0 18px;font-size:26px;color:var(--d)}
+.kp{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:18px}
+.k{background:var(--c);border:1px solid var(--b);border-right:6px solid var(--m);border-radius:18px;padding:16px 18px;box-shadow:0 4px 16px rgba(140,90,43,.08)}
+.k small{color:#8a7560;font-weight:700}.k b{display:block;font-size:28px;color:var(--m)}
+.g2{display:grid;grid-template-columns:1.3fr 1fr;gap:16px}.cd{background:var(--c);border:1px solid var(--b);border-radius:20px;padding:20px;box-shadow:0 6px 22px rgba(140,90,43,.09)}
+.cd h3{margin:0 0 12px}.bar{display:flex;align-items:center;gap:10px;margin:8px 0}.bar span{width:110px;font-size:13px}
+.bar i{height:14px;border-radius:8px;background:linear-gradient(90deg,var(--m),var(--a))}.bar em{font-style:normal;font-weight:800}
+.li{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--s)}.mu{color:#8a7560}
+.tb{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}input,select,textarea{font:inherit;padding:10px 12px;border:1px solid var(--b);border-radius:10px;background:#fff;color:var(--t);width:100%}
+.tb input{flex:1;min-width:180px}.tb select{width:170px}
+table{width:100%;border-collapse:collapse;background:var(--c);border:1px solid var(--b);border-radius:16px;overflow:hidden}
+th{background:var(--m);color:#fff;padding:12px;text-align:right;font-size:13px}td{padding:11px 12px;border-bottom:1px solid var(--s);font-size:14px}tr:hover td{background:#FAF3E8}
+td small{color:#8a7560;display:block}.bd{padding:3px 12px;border-radius:99px;font-size:12px;font-weight:700}
+.bt{background:linear-gradient(135deg,var(--m),var(--d));color:#fff;border:0;padding:10px 20px;border-radius:12px;font:inherit;font-weight:700;cursor:pointer;box-shadow:0 6px 16px rgba(62,39,16,.22)}
+.bt:hover{filter:brightness(1.12)}.gh{background:var(--s);color:var(--d);box-shadow:none}.ic{background:none;border:0;font-size:17px;cursor:pointer;padding:4px 6px;border-radius:8px}.ic:hover{background:var(--s)}
+.mb{position:fixed;inset:0;background:rgba(40,25,10,.55);display:flex;align-items:center;justify-content:center;z-index:9;padding:16px}
+.md{background:var(--c);border-radius:22px;padding:26px;width:min(900px,100%);max-height:92vh;overflow:auto}.md h3{margin:0 0 16px;color:var(--d)}
+.fg{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}label{font-weight:700;font-size:13px;display:block}label input,label textarea{margin-top:5px;font-weight:400}
+.ac{display:flex;gap:10px;margin-top:18px}.mg{display:grid;grid-template-columns:1fr 1.3fr;gap:16px}.fg1{display:grid;gap:12px;align-content:start}iframe{width:100%;height:520px;border:1px solid var(--b);border-radius:12px;background:#fff}
+#toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,80px);background:var(--d);color:#fff;padding:12px 22px;border-radius:12px;opacity:0;transition:.3s;z-index:99}
+#toast.show{transform:translate(-50%,0);opacity:1}#toast.err{background:#8A2E1B}
+@media(max-width:800px){body{flex-direction:column}aside{width:100%;height:auto;position:static}.g2,.mg,.fg{grid-template-columns:1fr}main{padding:18px}}
+</style></head><body>
+<aside><h1>🏛️ بوابة الاستقالات</h1><p>إدارة ومراسلات رسمية</p><nav>
+<a data-v="dash" onclick="V='dash';draw()">🏠 لوحة القيادة</a><a data-v="list" onclick="V='list';draw()">📄 الاستقالات</a><a href="/api/backup" download>🗄️ نسخة احتياطية</a></nav></aside>
+<main><h2 id="ttl"></h2><div id="main"></div></main><div id="m"></div><div id="toast"></div>
+<script>
+const $=s=>document.querySelector(s);
+const api=async(u,o)=>{const r=await fetch('/api/'+u,o&&{method:o.method,headers:{'Content-Type':'application/json'},body:JSON.stringify(o.body)});
+ if(!r.ok){const j=await r.json().catch(()=>({}));throw new Error(typeof j.detail=='string'?j.detail:'بيانات غير صحيحة')}return r.json()};
+const ST={Pending:['قيد المراجعة','#8A5A00','#FFF3D6'],Approved:['معتمدة','#44631F','#E7F0DC'],Rejected:['مرفوضة','#8A2E1B','#F7E0DA']};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const f=d=>d?d.split('-').reverse().join('/'):'';
+const bd=s=>`<span class="bd" style="color:${ST[s][1]};background:${ST[s][2]}">${ST[s][0]}</span>`;
+let D=[],V='dash',Q='',SF='';
+const toast=(m,e)=>{const t=$('#toast');t.textContent=m;t.className='show'+(e?' err':'');setTimeout(()=>t.className='',3000)};
+const modal=h=>$('#m').innerHTML=`<div class="mb" onclick="if(event.target==this)closeM()"><div class="md">${h}</div></div>`;
+const closeM=()=>$('#m').innerHTML='';
+async function load(){D=await api('r');draw()}
+function draw(){document.querySelectorAll('nav a[data-v]').forEach(a=>a.classList.toggle('on',a.dataset.v==V));
+ $('#ttl').textContent=V=='dash'?'لوحة القيادة':'الاستقالات';$('#main').innerHTML=V=='dash'?dash():list()}
+function dash(){const n=s=>D.filter(r=>r.status==s).length,br={};D.forEach(r=>{const k=r.branch||'—';br[k]=(br[k]||0)+1});
+ const mx=Math.max(1,...Object.values(br)),pay=D.reduce((a,r)=>a+r.net_pay,0);
+ return `<div class="kp">${[['إجمالي الاستقالات',D.length],['قيد المراجعة',n('Pending')],['معتمدة',n('Approved')],['مرفوضة',n('Rejected')],['المستحقات (EGP)',pay.toLocaleString()]].map(([l,v])=>`<div class="k"><small>${l}</small><b>${v}</b></div>`).join('')}</div>
+ <div class="g2"><div class="cd"><h3>حسب الفرع</h3>${Object.entries(br).map(([k,v])=>`<div class="bar"><span>${esc(k)}</span><i style="width:${v/mx*60}%"></i><em>${v}</em></div>`).join('')||'<p class="mu">لا توجد بيانات</p>'}</div>
+ <div class="cd"><h3>آخر الطلبات</h3>${D.slice(0,6).map(r=>`<div class="li"><b>${esc(r.name)}</b>${bd(r.status)}</div>`).join('')||'<p class="mu">لا توجد بيانات</p>'}</div></div>`}
+function list(){const rows=D.filter(r=>(!Q||(r.name+r.title+r.branch).toLowerCase().includes(Q))&&(!SF||r.status==SF));
+ return `<div class="tb"><input id="q" placeholder="🔎 بحث بالاسم أو الوظيفة أو الفرع" value="${esc(Q)}" oninput="Q=this.value.toLowerCase();draw();const q=$('#q');q.focus();q.setSelectionRange(99,99)">
+ <select onchange="SF=this.value;draw()"><option value="">كل الحالات</option>${Object.entries(ST).map(([k,v])=>`<option value="${k}" ${SF==k?'selected':''}>${v[0]}</option>`).join('')}</select>
+ <button class="bt" onclick="openForm(0)">➕ استقالة جديدة</button></div>
+ <table><tr><th>الموظف</th><th>الفرع</th><th>آخر يوم</th><th>المستحقات</th><th>الحالة</th><th>إجراءات</th></tr>
+ ${rows.map(r=>`<tr><td><b>${esc(r.name)}</b><small>${esc(r.title)}</small></td><td>${esc(r.branch)}</td><td>${f(r.last_day)}</td><td>${r.net_pay.toLocaleString()}</td><td>${bd(r.status)}</td>
+ <td><button class="ic" title="اعتماد" onclick="setS(${r.id},'Approved')">✅</button><button class="ic" title="رفض" onclick="setS(${r.id},'Rejected')">⛔</button><button class="ic" title="تعديل" onclick="openForm(${r.id})">✏️</button>
+ <button class="ic" title="إرسال بالقالب" onclick="openMail(${r.id})">✉️</button><button class="ic" title="طباعة" onclick="window.open('/api/r/${r.id}/preview')">🖨️</button><button class="ic" title="حذف" onclick="del(${r.id})">🗑️</button></td></tr>`).join('')||'<tr><td colspan="6" class="mu" style="text-align:center;padding:30px">لا توجد نتائج</td></tr>'}</table>`}
+async function setS(i,s){try{await api(`r/${i}/status/${s}`,{method:'POST'});toast('تم تحديث الحالة');load()}catch(e){toast(e.message,1)}}
+async function del(i){if(confirm('حذف نهائي؟')){await api('r/'+i,{method:'DELETE'});toast('تم الحذف');load()}}
+const K=['name','title','branch','manager','recipient','reason','hire_date','resign_date','last_day','net_pay'];
+function openForm(id){const r=D.find(x=>x.id==id)||{};const fl=[['name','اسم الموظف'],['title','المسمى الوظيفي'],['branch','الفرع'],['manager','المدير المباشر'],['recipient','الموجه له الطلب'],['reason','السبب'],['hire_date','تاريخ التعيين','date'],['resign_date','تاريخ الاستقالة','date'],['last_day','آخر يوم عمل','date'],['net_pay','المستحقات (EGP)','number']];
+ modal(`<h3>${id?'تعديل':'إضافة'} استقالة</h3><div class="fg">${fl.map(([k,l,t])=>`<label>${l}<input id="f_${k}" type="${t||'text'}" value="${esc(r[k])}"></label>`).join('')}</div>
+ <div class="ac"><button class="bt" onclick="save(${id})">💾 حفظ</button><button class="bt gh" onclick="closeM()">إلغاء</button></div>`)}
+async function save(id){const b={};K.forEach(k=>b[k]=$('#f_'+k).value);b.net_pay=+b.net_pay||0;
+ if(!b.name||!b.hire_date||!b.resign_date||!b.last_day)return toast('أكمل الاسم والتواريخ',1);
+ if(b.last_day<b.resign_date||b.resign_date<b.hire_date)return toast('راجع ترتيب التواريخ',1);
+ try{await api(id?'r/'+id:'r',{method:id?'PUT':'POST',body:b});closeM();toast('تم الحفظ');load()}catch(e){toast(e.message,1)}}
+function openMail(id){const r=D.find(x=>x.id==id);
+ modal(`<h3>✉️ إرسال بالقالب — ${esc(r.name)}</h3><div class="mg"><div class="fg1"><label>إلى<input id="m_to" dir="ltr" placeholder="a@company.com, b@company.com"></label>
+ <label>نسخة CC<input id="m_cc" dir="ltr"></label><label>الموضوع<input id="m_sub" dir="ltr" value="Resignation Approval Request - ${esc(r.name)}"></label>
+ <label>ملاحظة داخل الرسالة<textarea id="m_note" rows="3" oninput="prev(${id})"></textarea></label><div class="ac"><button class="bt" onclick="send(${id})">🚀 إرسال</button><button class="bt gh" onclick="closeM()">إغلاق</button></div></div><iframe id="pv"></iframe></div>`);prev(id)}
+async function prev(i){$('#pv').srcdoc=await(await fetch(`/api/r/${i}/preview?note=`+encodeURIComponent($('#m_note').value))).text()}
+async function send(i){try{await api(`r/${i}/mail`,{method:'POST',body:{to:$('#m_to').value,cc:$('#m_cc').value,subject:$('#m_sub').value,note:$('#m_note').value}});closeM();toast('✅ تم الإرسال')}catch(e){toast(e.message,1)}}
+load();
+</script></body></html>
