@@ -102,4 +102,8 @@ def mail(i: int, m: Mail):
 @app.get("/api/backup")
 def backup(): return FileResponse(DB, filename="backup.db")
 
-app.mount("/", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static"), html=True))
+from pathlib import Path
+
+@app.get("/")
+def home():
+    return FileResponse(Path(__file__).parent / "index.html")
