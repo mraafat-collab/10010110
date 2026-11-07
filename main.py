@@ -1,249 +1,191 @@
 import os
-import shutil
-import uuid
-from typing import List, Optional
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-from sqlalchemy import JSON, Column, Float, Integer, String, create_engine
-from sqlalchemy.orm import Session, declarative_base, sessionmaker
+import pandas as pd
+import streamlit as st
+from sqlalchemy import (
+    JSON,
+    Column,
+    Float,
+    Integer,
+    String,
+    create_engine,
+)
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 # ---------------------------------------------------------------------------
-# 1. DATABASE CONFIGURATION
+# 1. DATABASE CONFIGURATION (SQLite)
 # ---------------------------------------------------------------------------
-SQLALCHEMY_DATABASE_URL = "sqlite:///./hr_system.db"
-
+DATABASE_URL = "sqlite:///./hr_system.db"
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    DATABASE_URL, connect_args={"check_same_thread": False}
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-# ---------------------------------------------------------------------------
-# 2. SQLALCHEMY MODELS
-# ---------------------------------------------------------------------------
 class NewHire(Base):
     __tablename__ = "new_hires"
 
     id = Column(Integer, primary_key=True, index=True)
-    photo_url = Column(
-        String,
-        default="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150",
-    )
     employee_name = Column(String, nullable=False)
     branch = Column(String, nullable=False)
     job_title = Column(String, nullable=False)
     hiring_date = Column(String, nullable=False)
-    grading_system = Column(String, default="Grade 3 - Senior Specialist")
-    net_basic_salary = Column(Float, default=0.0)
-    net_allowance = Column(Float, default=0.0)
-    net_kpi = Column(Float, default=0.0)
     total_net = Column(Float, default=0.0)
-    education = Column(String, default="Bachelor's Degree")
-    age = Column(Integer, default=30)
-    address = Column(String, default="Cairo, Egypt")
-    experience = Column(String, default="5 Years")
     manager = Column(String, nullable=False)
     status = Column(String, default="Pending")
-    manager_comment = Column(
-        String, default="Pending initial onboarding review."
-    )
-    onboarding_checklist = Column(
-        JSON,
-        default=lambda: [
-            {"id": 1, "label": "ID & Legal Documents Verified", "done": False},
-            {"id": 2, "label": "Work Laptop & Access Granted", "done": False},
-            {"id": 3, "label": "Signed Contract Uploaded", "done": False},
-            {"id": 4, "label": "Bank Account Setup", "done": False},
-            {"id": 5, "label": "Medical Insurance Registered", "done": False},
-            {"id": 6, "label": "Orientation Scheduled", "done": False},
-        ],
-    )
 
 
 class Resignation(Base):
     __tablename__ = "resignations"
 
     id = Column(Integer, primary_key=True, index=True)
-    photo_url = Column(
-        String,
-        default="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
-    )
     employee_name = Column(String, nullable=False)
     branch = Column(String, nullable=False)
     job_title = Column(String, nullable=False)
-    hiring_date = Column(String, nullable=False)
     resignation_date = Column(String, nullable=False)
     last_working_day = Column(String, nullable=False)
-    grading = Column(String, default="Grade 4 - Team Lead")
-    total_net = Column(Float, default=0.0)
-    reason = Column(String, default="Career Advancement")
-    notice_status = Column(String, default="30 Days - In Progress")
-    handover_status = Column(String, default="Pending Handover Sign-off")
-    total_experience = Column(String, default="3 Years, 2 Months")
+    reason = Column(String, nullable=False)
     manager = Column(String, nullable=False)
-    absence = Column(String, default="2 Days Remaining")
-    loan_balance = Column(Float, default=0.0)
     status = Column(String, default="Pending")
-    manager_comment = Column(String, default="Awaiting exit interview.")
 
 
 Base.metadata.create_all(bind=engine)
 
-
 # ---------------------------------------------------------------------------
-# 3. PYDANTIC SCHEMAS
+# 2. STREAMLIT UI CONFIGURATION
 # ---------------------------------------------------------------------------
-class ChecklistItem(BaseModel):
-    id: int
-    label: str
-    done: bool
-
-
-class NewHireBase(BaseModel):
-    employee_name: str
-    branch: str
-    job_title: str
-    hiring_date: str
-    grading_system: Optional[str] = "Grade 3 - Senior Specialist"
-    net_basic_salary: float = 0.0
-    net_allowance: float = 0.0
-    net_kpi: float = 0.0
-    total_net: float = 0.0
-    education: Optional[str] = "Bachelor's Degree"
-    age: Optional[int] = 30
-    address: Optional[str] = "Cairo, Egypt"
-    experience: Optional[str] = "5 Years"
-    manager: str
-    status: Optional[str] = "Pending"
-    manager_comment: Optional[str] = "Pending initial onboarding review."
-    photo_url: Optional[str] = (
-        "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150"
-    )
-    onboarding_checklist: Optional[List[ChecklistItem]] = []
-
-
-class NewHireCreate(NewHireBase):
-    pass
-
-
-class NewHireResponse(NewHireBase):
-    id: int
-
-    class Config:
-        from_attributes = True
-
-
-class ResignationBase(BaseModel):
-    employee_name: str
-    branch: str
-    job_title: str
-    hiring_date: str
-    resignation_date: str
-    last_working_day: str
-    grading: Optional[str] = "Grade 4 - Team Lead"
-    total_net: float = 0.0
-    reason: str
-    notice_status: Optional[str] = "30 Days - Active"
-    handover_status: Optional[str] = "Pending"
-    total_experience: Optional[str] = "2 Years"
-    manager: str
-    absence: Optional[str] = "0 Days"
-    loan_balance: Optional[float] = 0.0
-    status: Optional[str] = "Pending"
-    manager_comment: Optional[str] = "Pending Manager Review"
-    photo_url: Optional[str] = (
-        "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
-    )
-
-
-class ResignationCreate(ResignationBase):
-    pass
-
-
-class ResignationResponse(ResignationBase):
-    id: int
-
-    class Config:
-        from_attributes = True
-
-
-# ---------------------------------------------------------------------------
-# 4. FASTAPI APP & ENDPOINTS
-# ---------------------------------------------------------------------------
-app = FastAPI(title="HR Management System", version="1.0.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+st.set_page_config(
+    page_title="HR Management System", page_icon="🏢", layout="wide"
 )
 
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
-
-
-# --- Serves index.html at root ---
-@app.get("/", response_class=FileResponse)
-def read_root():
-    if os.path.exists("index.html"):
-        return FileResponse("index.html")
-    return {"message": "HR API is running. index.html not found."}
-
-
-# --- API Routes ---
-@app.post(
-    "/api/hires",
-    response_model=NewHireResponse,
-    status_code=status.HTTP_201_CREATED,
+# Custom Styling (Dark Brown & Cream Palette)
+st.markdown(
+    """
+    <style>
+    .main-title { color: #6B4226; font-weight: bold; }
+    .stButton>button { background-color: #6B4226; color: white; border-radius: 6px; font-weight: bold; }
+    .stButton>button:hover { background-color: #52321c; color: white; }
+    </style>
+""",
+    unsafe_allow_html=True,
 )
-def create_hire(hire: NewHireCreate, db: Session = Depends(get_db)):
-    if hire.total_net == 0.0:
-        hire.total_net = (
-            hire.net_basic_salary + hire.net_allowance + hire.net_kpi
+
+st.title("🏢 نظام إدارة الموظفين | HR Management System")
+st.write("منصة إدارة تعيينات الموظفين الجدد وطلبات الاستقالة")
+st.divider()
+
+# Navigation Tabs
+tab_hires, tab_resignations, tab_dashboard = st.tabs(
+    ["📝 طلبات التعيين", "📄 طلبات الاستقالة", "📊 لوحة البيانات"]
+)
+
+# ---------------------------------------------------------------------------
+# TAB 1: NEW HIRES FORM
+# ---------------------------------------------------------------------------
+with tab_hires:
+    st.subheader("إضافة طلب تعيين جديد")
+    with st.form("hire_form", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            name = st.text_input("اسم الموظف *")
+            branch = st.text_input("الفرع *")
+            job_title = st.text_input("المسمى الوظيفي *")
+        with col2:
+            hiring_date = st.date_input("تاريخ التعيين")
+            total_net = st.number_input(
+                "إجمالي الراتب (EGP)", min_value=0.0, value=15000.0
+            )
+            manager = st.text_input("المدير المباشر *")
+
+        submitted = st.form_submit_button("إرسال طلب التعيين")
+
+        if submitted:
+            if name and branch and job_title and manager:
+                db = SessionLocal()
+                new_entry = NewHire(
+                    employee_name=name,
+                    branch=branch,
+                    job_title=job_title,
+                    hiring_date=str(hiring_date),
+                    total_net=total_net,
+                    manager=manager,
+                    status="Pending",
+                )
+                db.add(new_entry)
+                db.commit()
+                db.close()
+                st.success("تم حفظ طلب التعيين بنجاح!")
+            else:
+                st.error("يرجى إدخال جميع البيانات المطلوبة (*).")
+
+# ---------------------------------------------------------------------------
+# TAB 2: RESIGNATION FORM
+# ---------------------------------------------------------------------------
+with tab_resignations:
+    st.subheader("إضافة طلب استقالة")
+    with st.form("resignation_form", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            r_name = st.text_input("اسم الموظف المستقيل *")
+            r_branch = st.text_input("الفرع *")
+            r_title = st.text_input("المسمى الوظيفي *")
+            r_manager = st.text_input("المدير المباشر *")
+        with col2:
+            r_date = st.date_input("تاريخ تقديم الاستقالة")
+            r_last_day = st.date_input("آخر يوم عمل")
+            r_reason = st.text_area("سبب الاستقالة *")
+
+        r_submitted = st.form_submit_button("إرسال طلب الاستقالة")
+
+        if r_submitted:
+            if r_name and r_branch and r_title and r_reason and r_manager:
+                db = SessionLocal()
+                res_entry = Resignation(
+                    employee_name=r_name,
+                    branch=r_branch,
+                    job_title=r_title,
+                    resignation_date=str(r_date),
+                    last_working_day=str(r_last_day),
+                    reason=r_reason,
+                    manager=r_manager,
+                    status="Pending",
+                )
+                db.add(res_entry)
+                db.commit()
+                db.close()
+                st.success("تم تسجيل طلب الاستقالة بنجاح!")
+            else:
+                st.error("يرجى ملء كافة الحقول الأساسية (*).")
+
+# ---------------------------------------------------------------------------
+# TAB 3: DASHBOARD / RECORDS VIEW
+# ---------------------------------------------------------------------------
+with tab_dashboard:
+    st.subheader("عرض وحالة السجلات المسجلة")
+    db = SessionLocal()
+
+    # Query New Hires
+    hires_data = db.query(NewHire).all()
+    if hires_data:
+        st.markdown("#### 🔹 قائمة التعيينات الجديدة")
+        df_hires = pd.DataFrame([h.__dict__ for h in hires_data]).drop(
+            columns=["_sa_instance_state"], errors="ignore"
         )
+        st.dataframe(df_hires, use_container_width=True, hide_index=True)
+    else:
+        st.info("لا توجد طلبات تعيين مسجلة.")
 
-    db_hire = NewHire(**hire.model_dump())
-    db.add(db_hire)
-    db.commit()
-    db.refresh(db_hire)
-    return db_hire
+    st.divider()
 
+    # Query Resignations
+    res_data = db.query(Resignation).all()
+    if res_data:
+        st.markdown("#### 🔸 قائمة طلبات الاستقالة")
+        df_res = pd.DataFrame([r.__dict__ for r in res_data]).drop(
+            columns=["_sa_instance_state"], errors="ignore"
+        )
+        st.dataframe(df_res, use_container_width=True, hide_index=True)
+    else:
+        st.info("لا توجد طلبات استقالة مسجلة.")
 
-@app.get("/api/hires", response_model=List[NewHireResponse])
-def get_hires(db: Session = Depends(get_db)):
-    return db.query(NewHire).all()
-
-
-@app.post(
-    "/api/resignations",
-    response_model=ResignationResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-def create_resignation(
-    resignation: ResignationCreate, db: Session = Depends(get_db)
-):
-    db_res = Resignation(**resignation.model_dump())
-    db.add(db_res)
-    db.commit()
-    db.refresh(db_res)
-    return db_res
-
-
-@app.get("/api/resignations", response_model=List[ResignationResponse])
-def get_resignations(db: Session = Depends(get_db)):
-    return db.query(Resignation).all()
+    db.close()
