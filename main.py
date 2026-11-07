@@ -4,13 +4,14 @@ import uuid
 from typing import List, Optional
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import JSON, Column, Float, Integer, String, create_engine
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 # ---------------------------------------------------------------------------
-# 1. DATABASE CONFIGURATION (مدمج بدون الحاجة لملف database.py)
+# 1. DATABASE CONFIGURATION
 # ---------------------------------------------------------------------------
 SQLALCHEMY_DATABASE_URL = "sqlite:///./hr_system.db"
 
@@ -30,7 +31,7 @@ def get_db():
 
 
 # ---------------------------------------------------------------------------
-# 2. SQLALCHEMY MODELS (النماذج)
+# 2. SQLALCHEMY MODELS
 # ---------------------------------------------------------------------------
 class NewHire(Base):
     __tablename__ = "new_hires"
@@ -62,18 +63,10 @@ class NewHire(Base):
         JSON,
         default=lambda: [
             {"id": 1, "label": "ID & Legal Documents Verified", "done": False},
-            {
-                "id": 2,
-                "label": "Work Laptop & Access Granted",
-                "done": False,
-            },
+            {"id": 2, "label": "Work Laptop & Access Granted", "done": False},
             {"id": 3, "label": "Signed Contract Uploaded", "done": False},
             {"id": 4, "label": "Bank Account Setup", "done": False},
-            {
-                "id": 5,
-                "label": "Medical Insurance Registered",
-                "done": False,
-            },
+            {"id": 5, "label": "Medical Insurance Registered", "done": False},
             {"id": 6, "label": "Orientation Scheduled", "done": False},
         ],
     )
@@ -106,12 +99,11 @@ class Resignation(Base):
     manager_comment = Column(String, default="Awaiting exit interview.")
 
 
-# إنشاء الجداول تلقائياً في قاعدة البيانات
 Base.metadata.create_all(bind=engine)
 
 
 # ---------------------------------------------------------------------------
-# 3. PYDANTIC SCHEMAS (المخططات)
+# 3. PYDANTIC SCHEMAS
 # ---------------------------------------------------------------------------
 class ChecklistItem(BaseModel):
     id: int
@@ -144,27 +136,6 @@ class NewHireBase(BaseModel):
 
 class NewHireCreate(NewHireBase):
     pass
-
-
-class NewHireUpdate(BaseModel):
-    employee_name: Optional[str] = None
-    branch: Optional[str] = None
-    job_title: Optional[str] = None
-    hiring_date: Optional[str] = None
-    grading_system: Optional[str] = None
-    net_basic_salary: Optional[float] = None
-    net_allowance: Optional[float] = None
-    net_kpi: Optional[float] = None
-    total_net: Optional[float] = None
-    education: Optional[str] = None
-    age: Optional[int] = None
-    address: Optional[str] = None
-    experience: Optional[str] = None
-    manager: Optional[str] = None
-    status: Optional[str] = None
-    manager_comment: Optional[str] = None
-    photo_url: Optional[str] = None
-    onboarding_checklist: Optional[List[ChecklistItem]] = None
 
 
 class NewHireResponse(NewHireBase):
@@ -201,27 +172,6 @@ class ResignationCreate(ResignationBase):
     pass
 
 
-class ResignationUpdate(BaseModel):
-    employee_name: Optional[str] = None
-    branch: Optional[str] = None
-    job_title: Optional[str] = None
-    hiring_date: Optional[str] = None
-    resignation_date: Optional[str] = None
-    last_working_day: Optional[str] = None
-    grading: Optional[str] = None
-    total_net: Optional[float] = None
-    reason: Optional[str] = None
-    notice_status: Optional[str] = None
-    handover_status: Optional[str] = None
-    total_experience: Optional[str] = None
-    manager: Optional[str] = None
-    absence: Optional[str] = None
-    loan_balance: Optional[float] = None
-    status: Optional[str] = None
-    manager_comment: Optional[str] = None
-    photo_url: Optional[str] = None
-
-
 class ResignationResponse(ResignationBase):
     id: int
 
@@ -230,9 +180,9 @@ class ResignationResponse(ResignationBase):
 
 
 # ---------------------------------------------------------------------------
-# 4. FASTAPI APP & ENDPOINTS (التطبيق والمسارات)
+# 4. FASTAPI APP & ENDPOINTS
 # ---------------------------------------------------------------------------
-app = FastAPI(title="HR Management System API", version="1.0.0")
+app = FastAPI(title="HR Management System", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -247,20 +197,15 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
-# --- رفع الصور ---
-@app.post("/api/upload-photo")
-async def upload_photo(file: UploadFile = File(...)):
-    file_ext = file.filename.split(".")[-1]
-    filename = f"{uuid.uuid4()}.{file_ext}"
-    file_path = os.path.join(UPLOAD_DIR, filename)
-
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    return {"photo_url": f"http://localhost:8000/uploads/{filename}"}
+# --- Serves index.html at root ---
+@app.get("/", response_class=FileResponse)
+def read_root():
+    if os.path.exists("index.html"):
+        return FileResponse("index.html")
+    return {"message": "HR API is running. index.html not found."}
 
 
-# --- مسارات التعيينات الجديدة (New Hires) ---
+# --- API Routes ---
 @app.post(
     "/api/hires",
     response_model=NewHireResponse,
@@ -284,52 +229,6 @@ def get_hires(db: Session = Depends(get_db)):
     return db.query(NewHire).all()
 
 
-@app.get("/api/hires/{id}", response_model=NewHireResponse)
-def get_hire(id: int, db: Session = Depends(get_db)):
-    hire = db.query(NewHire).filter(NewHire.id == id).first()
-    if not hire:
-        raise HTTPException(
-            status_code=404, detail="New hire record not found"
-        )
-    return hire
-
-
-@app.put("/api/hires/{id}", response_model=NewHireResponse)
-def update_hire(
-    id: int, hire_update: NewHireUpdate, db: Session = Depends(get_db)
-):
-    db_hire = db.query(NewHire).filter(NewHire.id == id).first()
-    if not db_hire:
-        raise HTTPException(
-            status_code=404, detail="New hire record not found"
-        )
-
-    update_data = hire_update.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(db_hire, key, value)
-
-    db_hire.total_net = (
-        db_hire.net_basic_salary + db_hire.net_allowance + db_hire.net_kpi
-    )
-
-    db.commit()
-    db.refresh(db_hire)
-    return db_hire
-
-
-@app.delete("/api/hires/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_hire(id: int, db: Session = Depends(get_db)):
-    db_hire = db.query(NewHire).filter(NewHire.id == id).first()
-    if not db_hire:
-        raise HTTPException(
-            status_code=404, detail="New hire record not found"
-        )
-    db.delete(db_hire)
-    db.commit()
-    return None
-
-
-# --- مسارات الاستقالات (Resignations) ---
 @app.post(
     "/api/resignations",
     response_model=ResignationResponse,
@@ -338,54 +237,13 @@ def delete_hire(id: int, db: Session = Depends(get_db)):
 def create_resignation(
     resignation: ResignationCreate, db: Session = Depends(get_db)
 ):
-    db_resignation = Resignation(**resignation.model_dump())
-    db.add(db_resignation)
-    db.commit()
-    db.refresh(db_resignation)
-    return db_resignation
-
-
-@app.get("/api/resignations", response_model=List[ResignationResponse])
-def get_resignations(db: Session = Depends(get_db)):
-    return db.query(Resignation).all()
-
-
-@app.get("/api/resignations/{id}", response_model=ResignationResponse)
-def get_resignation(id: int, db: Session = Depends(get_db)):
-    res = db.query(Resignation).filter(Resignation.id == id).first()
-    if not res:
-        raise HTTPException(
-            status_code=404, detail="Resignation record not found"
-        )
-    return res
-
-
-@app.put("/api/resignations/{id}", response_model=ResignationResponse)
-def update_resignation(
-    id: int, res_update: ResignationUpdate, db: Session = Depends(get_db)
-):
-    db_res = db.query(Resignation).filter(Resignation.id == id).first()
-    if not db_res:
-        raise HTTPException(
-            status_code=404, detail="Resignation record not found"
-        )
-
-    update_data = res_update.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(db_res, key, value)
-
+    db_res = Resignation(**resignation.model_dump())
+    db.add(db_res)
     db.commit()
     db.refresh(db_res)
     return db_res
 
 
-@app.delete("/api/resignations/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_resignation(id: int, db: Session = Depends(get_db)):
-    db_res = db.query(Resignation).filter(Resignation.id == id).first()
-    if not db_res:
-        raise HTTPException(
-            status_code=404, detail="Resignation record not found"
-        )
-    db.delete(db_res)
-    db.commit()
-    return None
+@app.get("/api/resignations", response_model=List[ResignationResponse])
+def get_resignations(db: Session = Depends(get_db)):
+    return db.query(Resignation).all()
