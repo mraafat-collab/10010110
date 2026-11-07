@@ -1,168 +1,180 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>نظام إدارة الموظفين | HR System</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    :root {
-      --primary: #6B4226;
-      --secondary: #F5EDE0;
-    }
-    body {
-      background-color: #f8fafc;
-      font-family: system-ui, -apple-system, sans-serif;
-    }
-  </style>
-</head>
-<body class="p-6">
-  <div class="max-w-5xl mx-auto bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+import os
+import json
+import uuid
+from datetime import datetime
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse, FileResponse
+from pydantic import BaseModel
+from typing import Optional, List
+
+app = FastAPI(title="HR Management System")
+
+# إنشاء المجلدات تلقائياً
+os.makedirs("data", exist_ok=True)
+os.makedirs("uploads", exist_ok=True)
+
+# ملفات التخزين
+HIRES_FILE = "data/hires.json"
+RESIGNATIONS_FILE = "data/resignations.json"
+
+def load_json(filepath):
+    if not os.path.exists(filepath):
+        return []
+    with open(filepath, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def save_json(filepath, data):
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+# Models
+class HireRecord(BaseModel):
+    id: Optional[str] = None
+    employee_name: str = ""
+    branch: str = ""
+    job_title: str = ""
+    hiring_date: str = ""
+    grading_system: str = ""
+    net_basic_salary: float = 0
+    net_allowance: float = 0
+    net_kpi: float = 0
+    total_net: float = 0
+    educational_qualifications: str = ""
+    age: int = 0
+    address: str = ""
+    professional_experience: str = ""
+    direct_manager: str = ""
+    status: str = "Pending"
+    manager_comment: str = ""
+    photo_path: str = ""
+    checklist: List[str] = []
+    created_at: str = ""
+
+class ResignationRecord(BaseModel):
+    id: Optional[str] = None
+    employee_name: str = ""
+    branch: str = ""
+    job_title: str = ""
+    hiring_date: str = ""
+    resignation_date: str = ""
+    last_working_day: str = ""
+    grading_system: str = ""
+    total_net: float = 0
+    reason_for_leaving: str = ""
+    notice_period_status: str = ""
+    handover_status: str = ""
+    total_experience: str = ""
+    direct_manager: str = ""
+    absence_days: int = 0
+    loan_balance: float = 0
+    status: str = "Pending"
+    manager_comment: str = ""
+    photo_path: str = ""
+    created_at: str = ""
+
+# Routes
+@app.get("/", response_class=HTMLResponse)
+async def serve_frontend():
+    return FileResponse("index.html")
+
+@app.post("/api/upload-photo")
+async def upload_photo(file: UploadFile = File(...)):
+    file_id = str(uuid.uuid4())
+    ext = file.filename.split(".")[-1]
+    filename = f"{file_id}.{ext}"
+    filepath = os.path.join("uploads", filename)
     
-    <!-- Header -->
-    <header class="bg-[#6B4226] text-white p-6 flex justify-between items-center">
-      <div>
-        <span class="text-xs tracking-widest text-[#F5EDE0] uppercase font-semibold">نظام إدارة الموارد البشرية</span>
-        <h1 class="text-2xl font-bold mt-1">نموذج واعتمادات الموظفين</h1>
-      </div>
-      <span class="bg-[#F5EDE0] text-[#6B4226] px-3 py-1 rounded-full text-sm font-semibold">نشط</span>
-    </header>
+    with open(filepath, "wb") as f:
+        content = await file.read()
+        f.write(content)
+    
+    return {"photo_path": f"/uploads/{filename}"}
 
-    <!-- Main Content -->
-    <div class="p-8">
-      
-      <!-- Form Section -->
-      <div class="mb-10 bg-[#F5EDE0]/30 p-6 rounded-lg border border-[#F5EDE0]">
-        <h2 class="text-xl font-bold text-[#6B4226] mb-4">إضافة تعيين جديد</h2>
-        <form id="hireForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">اسم الموظف</label>
-            <input type="text" id="employee_name" required class="w-full p-2 border rounded-md focus:ring-2 focus:ring-[#6B4226]">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">الفرع</label>
-            <input type="text" id="branch" required class="w-full p-2 border rounded-md focus:ring-2 focus:ring-[#6B4226]">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">المسمى الوظيفي</label>
-            <input type="text" id="job_title" required class="w-full p-2 border rounded-md focus:ring-2 focus:ring-[#6B4226]">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">تاريخ التعيين</label>
-            <input type="date" id="hiring_date" required class="w-full p-2 border rounded-md focus:ring-2 focus:ring-[#6B4226]">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">إجمالي الراتب (EGP)</label>
-            <input type="number" id="total_net" value="0" class="w-full p-2 border rounded-md focus:ring-2 focus:ring-[#6B4226]">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">المدير المباشر</label>
-            <input type="text" id="manager" required class="w-full p-2 border rounded-md focus:ring-2 focus:ring-[#6B4226]">
-          </div>
-          <div class="md:col-span-2">
-            <button type="submit" class="w-full bg-[#6B4226] hover:bg-[#52321c] text-white font-bold py-2.5 px-4 rounded-md transition shadow">
-              حفظ بيانات التعيين
-            </button>
-          </div>
-        </form>
-      </div>
+@app.get("/uploads/{filename}")
+async def get_upload(filename: str):
+    return FileResponse(os.path.join("uploads", filename))
 
-      <!-- Data Table Section -->
-      <div>
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-xl font-bold text-[#6B4226]">قائمة التعيينات الحالية</h2>
-          <button onclick="loadHires()" class="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded border">تحديث</button>
-        </div>
-        <div class="overflow-x-auto border rounded-lg">
-          <table class="w-full text-right text-sm text-gray-600">
-            <thead class="bg-[#F5EDE0] text-[#6B4226] font-bold">
-              <tr>
-                <th class="p-3">#</th>
-                <th class="p-3">الاسم</th>
-                <th class="p-3">الوظيفة</th>
-                <th class="p-3">الفرع</th>
-                <th class="p-3">الراتب</th>
-                <th class="p-3">المدير</th>
-                <th class="p-3">الحالة</th>
-              </tr>
-            </thead>
-            <tbody id="hiresTableBody" class="divide-y">
-              <tr>
-                <td colspan="7" class="text-center p-4">جاري تحميل البيانات...</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+# Hires CRUD
+@app.post("/api/hires")
+async def create_hire(record: HireRecord):
+    records = load_json(HIRES_FILE)
+    record.id = str(uuid.uuid4())
+    record.created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    records.append(record.dict())
+    save_json(HIRES_FILE, records)
+    return {"success": True, "id": record.id}
 
-    </div>
-  </div>
+@app.get("/api/hires")
+async def get_hires():
+    return load_json(HIRES_FILE)
 
-  <script>
-    const API_URL = '/api';
+@app.get("/api/hires/{record_id}")
+async def get_hire(record_id: str):
+    records = load_json(HIRES_FILE)
+    for r in records:
+        if r["id"] == record_id:
+            return r
+    raise HTTPException(status_code=404, detail="Record not found")
 
-    async function loadHires() {
-      try {
-        const res = await fetch(`${API_URL}/hires`);
-        const data = await res.json();
-        const tbody = document.getElementById('hiresTableBody');
-        tbody.innerHTML = '';
-        
-        if (data.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" class="text-center p-4">لا توجد بيانات مسجلة بعد.</td></tr>';
-          return;
-        }
+@app.put("/api/hires/{record_id}")
+async def update_hire(record_id: str, record: HireRecord):
+    records = load_json(HIRES_FILE)
+    for i, r in enumerate(records):
+        if r["id"] == record_id:
+            records[i] = record.dict()
+            records[i]["id"] = record_id
+            save_json(HIRES_FILE, records)
+            return {"success": True}
+    raise HTTPException(status_code=404, detail="Record not found")
 
-        data.forEach(item => {
-          tbody.innerHTML += `
-            <tr class="hover:bg-gray-50">
-              <td class="p-3 font-semibold">${item.id}</td>
-              <td class="p-3">${item.employee_name}</td>
-              <td class="p-3">${item.job_title}</td>
-              <td class="p-3">${item.branch}</td>
-              <td class="p-3">${item.total_net} EGP</td>
-              <td class="p-3">${item.manager}</td>
-              <td class="p-3"><span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">${item.status}</span></td>
-            </tr>
-          `;
-        });
-      } catch (err) {
-        console.error('Error loading data:', err);
-      }
-    }
+@app.delete("/api/hires/{record_id}")
+async def delete_hire(record_id: str):
+    records = load_json(HIRES_FILE)
+    records = [r for r in records if r["id"] != record_id]
+    save_json(HIRES_FILE, records)
+    return {"success": True}
 
-    document.getElementById('hireForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const payload = {
-        employee_name: document.getElementById('employee_name').value,
-        branch: document.getElementById('branch').value,
-        job_title: document.getElementById('job_title').value,
-        hiring_date: document.getElementById('hiring_date').value,
-        total_net: parseFloat(document.getElementById('total_net').value) || 0,
-        manager: document.getElementById('manager').value,
-      };
+# Resignations CRUD
+@app.post("/api/resignations")
+async def create_resignation(record: ResignationRecord):
+    records = load_json(RESIGNATIONS_FILE)
+    record.id = str(uuid.uuid4())
+    record.created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    records.append(record.dict())
+    save_json(RESIGNATIONS_FILE, records)
+    return {"success": True, "id": record.id}
 
-      try {
-        const res = await fetch(`${API_URL}/hires`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
+@app.get("/api/resignations")
+async def get_resignations():
+    return load_json(RESIGNATIONS_FILE)
 
-        if (res.ok) {
-          alert('تمت إضافة البيانات بنجاح!');
-          document.getElementById('hireForm').reset();
-          loadHires();
-        } else {
-          alert('حدث خطأ أثناء الحفظ.');
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    });
+@app.get("/api/resignations/{record_id}")
+async def get_resignation(record_id: str):
+    records = load_json(RESIGNATIONS_FILE)
+    for r in records:
+        if r["id"] == record_id:
+            return r
+    raise HTTPException(status_code=404, detail="Record not found")
 
-    // Load hires on page load
-    loadHires();
-  </script>
-</body>
-</html>
+@app.put("/api/resignations/{record_id}")
+async def update_resignation(record_id: str, record: ResignationRecord):
+    records = load_json(RESIGNATIONS_FILE)
+    for i, r in enumerate(records):
+        if r["id"] == record_id:
+            records[i] = record.dict()
+            records[i]["id"] = record_id
+            save_json(RESIGNATIONS_FILE, records)
+            return {"success": True}
+    raise HTTPException(status_code=404, detail="Record not found")
+
+@app.delete("/api/resignations/{record_id}")
+async def delete_resignation(record_id: str):
+    records = load_json(RESIGNATIONS_FILE)
+    records = [r for r in records if r["id"] != record_id]
+    save_json(RESIGNATIONS_FILE, records)
+    return {"success": True}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
