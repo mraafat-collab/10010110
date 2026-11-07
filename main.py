@@ -1,17 +1,16 @@
 import os
 import shutil
 import uuid
-from typing import Any, List, Optional
-from database import Base, SessionLocal, engine
+from typing import List, Optional
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy import JSON, Column, Float, Integer, String, create_engine
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 # ---------------------------------------------------------------------------
-# 1. DATABASE CONFIGURATION
+# 1. DATABASE CONFIGURATION (مدمج بدون الحاجة لملف database.py)
 # ---------------------------------------------------------------------------
 SQLALCHEMY_DATABASE_URL = "sqlite:///./hr_system.db"
 
@@ -31,7 +30,7 @@ def get_db():
 
 
 # ---------------------------------------------------------------------------
-# 2. SQLALCHEMY MODELS
+# 2. SQLALCHEMY MODELS (النماذج)
 # ---------------------------------------------------------------------------
 class NewHire(Base):
     __tablename__ = "new_hires"
@@ -55,7 +54,7 @@ class NewHire(Base):
     address = Column(String, default="Cairo, Egypt")
     experience = Column(String, default="5 Years")
     manager = Column(String, nullable=False)
-    status = Column(String, default="Pending")  # Pending, Approved, Rejected
+    status = Column(String, default="Pending")
     manager_comment = Column(
         String, default="Pending initial onboarding review."
     )
@@ -107,12 +106,12 @@ class Resignation(Base):
     manager_comment = Column(String, default="Awaiting exit interview.")
 
 
-# Create DB Tables
+# إنشاء الجداول تلقائياً في قاعدة البيانات
 Base.metadata.create_all(bind=engine)
 
 
 # ---------------------------------------------------------------------------
-# 3. PYDANTIC SCHEMAS
+# 3. PYDANTIC SCHEMAS (المخططات)
 # ---------------------------------------------------------------------------
 class ChecklistItem(BaseModel):
     id: int
@@ -120,7 +119,6 @@ class ChecklistItem(BaseModel):
     done: bool
 
 
-# --- New Hire Schemas ---
 class NewHireBase(BaseModel):
     employee_name: str
     branch: str
@@ -176,7 +174,6 @@ class NewHireResponse(NewHireBase):
         from_attributes = True
 
 
-# --- Resignation Schemas ---
 class ResignationBase(BaseModel):
     employee_name: str
     branch: str
@@ -233,11 +230,10 @@ class ResignationResponse(ResignationBase):
 
 
 # ---------------------------------------------------------------------------
-# 4. FASTAPI APP & ENDPOINTS
+# 4. FASTAPI APP & ENDPOINTS (التطبيق والمسارات)
 # ---------------------------------------------------------------------------
 app = FastAPI(title="HR Management System API", version="1.0.0")
 
-# Enable CORS for frontend integration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -246,13 +242,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Upload directory setup
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
-# --- Photo Upload API ---
+# --- رفع الصور ---
 @app.post("/api/upload-photo")
 async def upload_photo(file: UploadFile = File(...)):
     file_ext = file.filename.split(".")[-1]
@@ -265,7 +260,7 @@ async def upload_photo(file: UploadFile = File(...)):
     return {"photo_url": f"http://localhost:8000/uploads/{filename}"}
 
 
-# --- New Hires Endpoints ---
+# --- مسارات التعيينات الجديدة (New Hires) ---
 @app.post(
     "/api/hires",
     response_model=NewHireResponse,
@@ -334,7 +329,7 @@ def delete_hire(id: int, db: Session = Depends(get_db)):
     return None
 
 
-# --- Resignations Endpoints ---
+# --- مسارات الاستقالات (Resignations) ---
 @app.post(
     "/api/resignations",
     response_model=ResignationResponse,
